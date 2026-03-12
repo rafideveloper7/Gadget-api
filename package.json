@@ -6,7 +6,18 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "vercel-build": "echo 'No build needed'",
+    "vercel-dev": "nodemon src/server.js",
+    "vercel-start": "node src/server.js",
+    "vercel-postinstall": "echo 'Post-install script executed'",
+    "vercel-prebuild": "echo 'Pre-build script executed'",
+    "vercel-postbuild": "echo 'Post-build script executed'",
+    "vercel-preroute": "echo 'Pre-route script executed'",
+    "vercel-postroute": "echo 'Post-route script executed'",
+    "vercel-predeploy": "echo 'Pre-deploy script executed'",
+    "vercel-postdeploy": "echo 'Post-deploy script executed'",
+    "vercel-prerun": "echo 'Pre-run script executed'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
