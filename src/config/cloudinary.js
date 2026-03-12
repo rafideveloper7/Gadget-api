@@ -1,7 +1,7 @@
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
+import streamifier from 'streamifier';
 
 dotenv.config();
 
@@ -12,65 +12,91 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Product images storage
-const productStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => {
-    return {
-      folder: 'gadgets/products',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-      public_id: `product-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      transformation: [{ width: 800, height: 800, crop: 'limit' }]
-    };
+// Memory storage for multer
+const storage = multer.memoryStorage();
+
+// Multer upload instances
+export const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
   }
 });
 
-// Blog images storage
-const blogStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => {
-    return {
-      folder: 'gadgets/blogs',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-      public_id: `blog-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      transformation: [{ width: 1200, height: 630, crop: 'limit' }]
-    };
+export const uploadMultiple = upload.array('images', 5);
+
+// Aliases for different routes (for compatibility)
+export const uploadProductImage = upload;
+export const uploadProductImages = uploadMultiple;
+export const uploadCategoryImage = upload;
+export const uploadBlogImage = upload;
+
+// Middleware to upload single image to Cloudinary
+export const uploadToCloudinary = async (req, res, next) => {
+  try {
+    if (!req.file) return next();
+    
+    const stream = streamifier.createReadStream(req.file.buffer);
+    
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'gadgets/products',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 800, height: 800, crop: 'limit' }]
+      },
+      (error, result) => {
+        if (error) {
+          return next(error);
+        }
+        req.file.path = result.secure_url;
+        req.file.cloudinaryId = result.public_id;
+        next();
+      }
+    );
+    
+    stream.pipe(uploadStream);
+  } catch (error) {
+    next(error);
   }
-});
+};
 
-// Category images storage
-const categoryStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => {
-    return {
-      folder: 'gadgets/categories',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-      public_id: `category-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      transformation: [{ width: 500, height: 500, crop: 'limit' }]
-    };
+// Middleware to upload multiple images to Cloudinary
+export const uploadMultipleToCloudinary = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return next();
+    
+    const uploadPromises = req.files.map(file => {
+      return new Promise((resolve, reject) => {
+        const stream = streamifier.createReadStream(file.buffer);
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'gadgets/products',
+            allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+            transformation: [{ width: 800, height: 800, crop: 'limit' }]
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result.secure_url);
+          }
+        );
+        stream.pipe(uploadStream);
+      });
+    });
+    
+    const imageUrls = await Promise.all(uploadPromises);
+    req.imageUrls = imageUrls;
+    next();
+  } catch (error) {
+    next(error);
   }
-});
+};
 
-// Create multer instances
-export const uploadProductImage = multer({ 
-  storage: productStorage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-});
-
-export const uploadBlogImage = multer({ 
-  storage: blogStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
-
-export const uploadCategoryImage = multer({ 
-  storage: categoryStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
-
-// For multiple images
-export const uploadProductImages = multer({ 
-  storage: productStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }
-}).array('images', 5);
-
+// Export cloudinary instance for other files
 export default cloudinary;
