@@ -84,22 +84,27 @@ export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check against .env credentials
-    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-      
-      // Create admin object for response
-      const admin = {
-        _id: 'admin',
-        name: process.env.ADMIN_NAME || 'Admin',
-        email: process.env.ADMIN_EMAIL,
-        role: 'superadmin'
-      };
+    // Find admin in database (NOT from .env)
+    const admin = await Admin.findOne({ email });
+    
+    if (admin && (await admin.matchPassword(password))) {
+      // Generate token with REAL MongoDB ID
+      const token = jwt.sign(
+        { id: admin._id, isAdmin: true }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '7d' }
+      );
 
       res.json({
         success: true,
         message: 'Admin login successful',
-        admin: admin,
-        token: generateAdminToken('admin')
+        admin: {
+          _id: admin._id,  // Real MongoDB ID
+          name: admin.name,
+          email: admin.email,
+          role: admin.role
+        },
+        token
       });
     } else {
       res.status(401).json({ 
