@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import jwt from 'jsonwebtoken'; // ← ADD THIS LINE
 import Admin from '../models/Admin.js';
 import { generateToken, generateAdminToken } from '../utils/generateToken.js';
 
