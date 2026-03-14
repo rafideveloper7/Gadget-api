@@ -87,8 +87,14 @@ export const createProduct = async (req, res) => {
 
     // If image uploaded, Cloudinary URL is in req.file.path
     if (req.file) {
-      productData.images = [req.file.path]; // Cloudinary URL
+      productData.images = [req.file.path];
     }
+
+    // Don't set slug manually - let the model handle it
+    // Remove any slug from request body to let model generate it
+    delete productData.slug;
+
+    console.log("Creating product with data:", productData); // Debug log
 
     const product = await Product.create(productData);
 
@@ -98,6 +104,7 @@ export const createProduct = async (req, res) => {
       product,
     });
   } catch (error) {
+    console.error("Product creation error:", error); // Debug log
     res.status(500).json({ success: false, message: error.message });
   }
 };

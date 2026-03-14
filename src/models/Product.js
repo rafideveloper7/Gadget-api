@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import slugify from "slugify";
 
 const productSchema = new mongoose.Schema(
   {
@@ -31,12 +32,24 @@ const productSchema = new mongoose.Schema(
     isFeatured: { type: Boolean, default: false },
     isAvailable: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-// Create slug from name
+// Create slug from name - THIS MUST RUN
 productSchema.pre("save", function (next) {
-  if (this.isModified("name")) {
+  if (this.isModified("name") || !this.slug) {
+    this.slug = this.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+    console.log("✅ Slug generated:", this.slug); // Add logging
+  }
+  next();
+});
+
+// Also add pre-validate hook to ensure slug exists
+productSchema.pre("validate", function (next) {
+  if (!this.slug && this.name) {
     this.slug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
